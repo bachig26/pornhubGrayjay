@@ -918,66 +918,36 @@ function getVideos(html, ulId) {
 
 		// Iterate through each li element
 		liElements.forEach(function (li) {
-
-			// Get the id attribute of the li element
 			var liId = li.getAttribute("id");
-			if (!liId) return; // Skip non-video items
+			if (!liId) return;
 
-						// Get common elements
 			const link = li.querySelector('a.linkVideoThumb');
 			const img = li.querySelector('img.thumb');
 			const usernameLink = li.querySelector('.usernameBadgesWrapper a');
-
 			if (!link || !img || !usernameLink) return;
 
-						// Extract core data
-			const videoUrl = URL_BASE + link.getAttribute('href');
-			const thumbnailUrl = img.getAttribute('src');
-			const title = img.getAttribute('alt') || img.getAttribute('data-title');
-			const videoId = img.getAttribute('data-video-id');
-			
-			// Author info
-			const authorInfo = {
-				channel: URL_BASE + usernameLink.getAttribute('href'),
-				authorName: usernameLink.textContent.trim()
-			};
-
-						// Duration and views
-			const durationStr = li.querySelector('var.duration')?.textContent.trim() || '0:00';
-			const duration = parseDuration(durationStr);
-			
-			const viewsStr = li.querySelector('span.views var')?.textContent.trim() || '0';
-
-			const views = parseNumberSuffix(viewsStr);
-
-						// Find preview image (some results use lazy loading)
+			// Get thumbnail (use lazy-loaded version if available)
 			const previewImg = li.querySelector('img.preview');
-			const thumbnailUrl = previewImg ? previewImg.getAttribute('src') : img.getAttribute('data-mediumthumb');
+			const thumbnailUrl = previewImg ? 
+				previewImg.getAttribute('src') : 
+				img.getAttribute('data-mediumthumb');
 
-					// Check if an <img> tag is found
-					if (imgElement) {
-						// Get the "src" attribute as "thumbnailUrl"
-						var thumbnailUrl = imgElement.getAttribute('src');
+			// Get numeric values
+			const durationStr = li.querySelector('var.duration')?.textContent.trim() || '0:00';
+			const viewsStr = li.querySelector('div.views var')?.textContent.trim() || '0'; // Fixed selector
 
-						// Title
-						var title = imgElement.getAttribute("alt");
-
-
-						var videoId = imgElement.getAttribute("data-video-id");
-
-						// Create an object with the desired properties and push it to the result array
-						resultArray.push({
-							id: videoId,
-							videoUrl: videoUrl,
-							title: title,
-							thumbnailUrl: thumbnailUrl,
-							duration: duration,
-							authorInfo: authorInfo,
-							views: views,
-						});
-					}
-				}
-			}
+			resultArray.push({
+				id: img.getAttribute('data-video-id'),
+				videoUrl: URL_BASE + link.getAttribute('href'),
+				title: img.getAttribute('alt') || img.getAttribute('data-title'),
+				thumbnailUrl: thumbnailUrl,
+				duration: parseDuration(durationStr),
+				authorInfo: {
+					channel: URL_BASE + usernameLink.getAttribute('href'),
+					authorName: usernameLink.textContent.trim()
+				},
+				views: parseNumberSuffix(viewsStr)
+			});
 		});
 	}
 
