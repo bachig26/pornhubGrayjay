@@ -874,8 +874,8 @@ function getVideoPager(path, params, page) {
 
 	var html = getPornhubContentData(urlWithParams);
 
-        var ulId = path.includes("/search") ? "videoSearchResult" : "videoCategory";
-        var vids = getVideos(html, ulId);  // Modified line
+	var ulId = path.includes("/search") ? "videoSearchResult" : "videoCategory";
+	var vids = getVideos(html, ulId);  // Modified line
 	
 	return new PornhubVideoPager(vids.videos.map(v => {
 		return new PlatformVideo({
