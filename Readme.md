@@ -13,6 +13,7 @@ And scan this QR code
 ### Method one:
 
 Follow this for development [plugin-development.md](https://gitlab.futo.org/videostreaming/grayjay/-/blob/master/plugin-development.md)
+[Install](grayjey://plugin/https://github.com/desidia-cyber/pornhubGrayjay/raw/main/PornhubConfig.json)
 
 ### Method two (easy, just temporary deploy)
 
