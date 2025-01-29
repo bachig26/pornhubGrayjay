@@ -921,35 +921,38 @@ function getVideos(html, ulId) {
 
 			// Get the id attribute of the li element
 			var liId = li.getAttribute("id");
+			if (!liId) return; // Skip non-video items
 
-			// Check if the id starts with "v" and is followed by digits only
+						// Get common elements
+			const link = li.querySelector('a.linkVideoThumb');
+			const img = li.querySelector('img.thumb');
+			const usernameLink = li.querySelector('.usernameBadgesWrapper a');
 
-			if (liId != "") {
-				// Find the first <a> tag inside the li
-				var aElement = li.querySelector('a');
+			if (!link || !img || !usernameLink) return;
 
-				var viewsStr = li.getElementsByClassName("videoDetailsBlock")[0].getElementsByClassName("views")[0].textContent.trim()
-				var views = parseNumberSuffix(viewsStr);
+						// Extract core data
+			const videoUrl = URL_BASE + link.getAttribute('href');
+			const thumbnailUrl = img.getAttribute('src');
+			const title = img.getAttribute('alt') || img.getAttribute('data-title');
+			const videoId = img.getAttribute('data-video-id');
+			
+			// Author info
+			const authorInfo = {
+				channel: URL_BASE + usernameLink.getAttribute('href'),
+				authorName: usernameLink.textContent.trim()
+			};
 
-				var authorInfoNode = li.getElementsByClassName("usernameWrap")[0].firstChild;
+						// Duration and views
+			const durationStr = li.querySelector('var.duration')?.textContent.trim() || '0:00';
+			const duration = parseDuration(durationStr);
+			
+			const viewsStr = li.querySelector('span.views var')?.textContent.trim() || '0';
 
-				var authorInfo = {
-					channel: URL_BASE + authorInfoNode.getAttribute("href"),
-					authorName: authorInfoNode.textContent.trim()
-				}
+			const views = parseNumberSuffix(viewsStr);
 
-				// Check if an <a> tag is found
-				if (aElement) {
-
-					//var duration = li.querySelectorAll("var").
-					var durationStr = aElement.getElementsByClassName("duration")[0].textContent.trim()
-					var duration = parseDuration(durationStr);
-
-					// Get the "href" attribute as "videoUrl"
-					var videoUrl = URL_BASE + aElement.getAttribute('href');
-
-					// Find the <img> tag inside the <a>
-					var imgElement = aElement.querySelector('img');
+						// Find preview image (some results use lazy loading)
+			const previewImg = li.querySelector('img.preview');
+			const thumbnailUrl = previewImg ? previewImg.getAttribute('src') : img.getAttribute('data-mediumthumb');
 
 					// Check if an <img> tag is found
 					if (imgElement) {
