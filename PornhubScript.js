@@ -8,7 +8,11 @@ var config = {};
 // session token
 var token = "";
 // headers (including cookie by default, since it's used for each session later)
-var headers = {"Cookie": ""};
+var headers = {
+  "Cookie": "",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+  "Referer": URL_BASE
+};
 
 /**
  * Build a query
@@ -874,8 +878,7 @@ function getVideoPager(path, params, page) {
 
 	var html = getPornhubContentData(urlWithParams);
 
-	var ulId = path.includes("/search") ? "videoSearchResult" : "videoCategory";
-	var vids = getVideos(html, ulId);  // Modified line
+	var vids = getVideos(html, "videoCategory");
 	
 	return new PornhubVideoPager(vids.videos.map(v => {
 		return new PlatformVideo({
@@ -918,36 +921,63 @@ function getVideos(html, ulId) {
 
 		// Iterate through each li element
 		liElements.forEach(function (li) {
+
+			// Get the id attribute of the li element
 			var liId = li.getAttribute("id");
-			if (!liId) return;
 
-			const link = li.querySelector('a.linkVideoThumb');
-			const img = li.querySelector('img.thumb');
-			const usernameLink = li.querySelector('.usernameBadgesWrapper a');
-			if (!link || !img || !usernameLink) return;
+			// Check if the id starts with "v" and is followed by digits only
 
-			// Get thumbnail (use lazy-loaded version if available)
-			const previewImg = li.querySelector('img.preview');
-			const thumbnailUrl = previewImg ? 
-				previewImg.getAttribute('src') : 
-				img.getAttribute('data-mediumthumb');
+			if (liId != "") {
+				// Find the first <a> tag inside the li
+				var aElement = li.querySelector('a');
 
-			// Get numeric values
-			const durationStr = li.querySelector('var.duration')?.textContent.trim() || '0:00';
-			const viewsStr = li.querySelector('div.views var')?.textContent.trim() || '0'; // Fixed selector
+				var viewsStr = li.getElementsByClassName("videoDetailsBlock")[0].getElementsByClassName("views")[0].textContent.trim()
+				var views = parseNumberSuffix(viewsStr);
 
-			resultArray.push({
-				id: img.getAttribute('data-video-id'),
-				videoUrl: URL_BASE + link.getAttribute('href'),
-				title: img.getAttribute('alt') || img.getAttribute('data-title'),
-				thumbnailUrl: thumbnailUrl,
-				duration: parseDuration(durationStr),
-				authorInfo: {
-					channel: URL_BASE + usernameLink.getAttribute('href'),
-					authorName: usernameLink.textContent.trim()
-				},
-				views: parseNumberSuffix(viewsStr)
-			});
+				var authorInfoNode = li.getElementsByClassName("usernameWrap")[0].firstChild;
+
+				var authorInfo = {
+					channel: URL_BASE + authorInfoNode.getAttribute("href"),
+					authorName: authorInfoNode.textContent.trim()
+				}
+
+				// Check if an <a> tag is found
+				if (aElement) {
+
+					//var duration = li.querySelectorAll("var").
+					var durationStr = aElement.getElementsByClassName("duration")[0].textContent.trim()
+					var duration = parseDuration(durationStr);
+
+					// Get the "href" attribute as "videoUrl"
+					var videoUrl = URL_BASE + aElement.getAttribute('href');
+
+					// Find the <img> tag inside the <a>
+					var imgElement = aElement.querySelector('img');
+
+					// Check if an <img> tag is found
+					if (imgElement) {
+						// Get the "src" attribute as "thumbnailUrl"
+						var thumbnailUrl = imgElement.getAttribute('src');
+
+						// Title
+						var title = imgElement.getAttribute("alt");
+
+
+						var videoId = imgElement.getAttribute("data-video-id");
+
+						// Create an object with the desired properties and push it to the result array
+						resultArray.push({
+							id: videoId,
+							videoUrl: videoUrl,
+							title: title,
+							thumbnailUrl: thumbnailUrl,
+							duration: duration,
+							authorInfo: authorInfo,
+							views: views,
+						});
+					}
+				}
+			}
 		});
 	}
 
