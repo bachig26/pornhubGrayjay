@@ -1,17 +1,15 @@
 const URL_BASE = "https://www.pornhub.com";
-
 const PLATFORM_CLAIMTYPE = 3;
-
 const PLATFORM = "PornHub";
 
 var config = {};
-// session token
 var token = "";
-// headers (including cookie by default, since it's used for each session later)
 var headers = {
-  "Cookie": "",
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-  "Referer": URL_BASE
+    "Cookie": "",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Referer": URL_BASE
 };
 
 /**
@@ -278,18 +276,16 @@ source.getContentDetails = function (url) {
 // 2.) cookie labeled "ss" in headers
 // this will allow you to get search suggestions!!
 function refreshSession() {
-	const resp = http.GET(URL_BASE, {});
-	if (!resp.isOk)
-		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
-	else {
-		var dom = domParser.parseFromString(resp.body);
-		// the token is found here
-		token = dom.querySelector("#searchInput").getAttribute("data-token");
-		// and the data for the ss cookie is found here
-		const adContextInfo = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]").getAttribute("data-info");
-		headers["Cookie"] = `ss=${JSON.parse(adContextInfo)["session_id"]}`
-		log("New session created")
-	}
+    const resp = http.GET(URL_BASE, headers); // Use headers with proper UA
+    if (!resp.isOk)
+        throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
+    else {
+        var dom = domParser.parseFromString(resp.body);
+        token = dom.querySelector("#searchInput").getAttribute("data-token");
+        const adContextInfo = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]").getAttribute("data-info");
+        headers["Cookie"] = `ss=${JSON.parse(adContextInfo)["session_id"]}`;
+        log("New session created with headers");
+    }
 }
 
 function getVideoId(dom) {
