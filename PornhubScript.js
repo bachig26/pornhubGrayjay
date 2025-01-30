@@ -64,26 +64,55 @@ source.getSearchCapabilities = () => {
 	};
 };
 
-// KEEP
-source.search = function (query, type, order, filters) {
-	//let sort = order;
-	//if (sort === Type.Order.Chronological) {
-	//	sort = "-publishedAt";
-	//}
-//
-	//const params = {
-	//	search: query,
-	//	sort
-	//};
-//
-	//if (type == Type.Feed.Streams) {
-	//	params.isLive = true;
-	//} else if (type == Type.Feed.Videos) {
-	//	params.isLive = false;
-	//}
+const SEARCH_API = "/video/search";
 
-	return getVideoPager("/video/search", {search: query}, 1);
+source.search = function (query, type, order, filters) {
+    const params = {
+        search: query,
+        page: 1 // Start from first page
+    };
+    return new PornhubSearchPager(SEARCH_API, params);
 };
+
+class PornhubSearchPager extends VideoPager {
+    constructor(path, params) {
+        super([], false);
+        this.path = path;
+        this.params = params;
+        this.loadPage();
+    }
+
+    loadPage() {
+        const url = `${URL_BASE}${this.path}${buildQuery(this.params)}`;
+        const html = getPornhubContentData(url);
+        const vids = getVideos(html, "videoSearchResult");
+        
+        this.results = vids.videos.map(v => 
+            new PlatformVideo({
+                id: new PlatformID(PLATFORM, v.id, config.id),
+                name: v.title,
+                thumbnails: new Thumbnails([new Thumbnail(v.thumbnailUrl, 0)]),
+                author: new PlatformAuthorLink(
+                    new PlatformID(PLATFORM, v.authorInfo.authorName, config.id),
+                    v.authorInfo.authorName,
+                    v.authorInfo.channel,
+                    ""
+                ),
+                duration: v.duration,
+                viewCount: v.views,
+                url: v.videoUrl,
+                isLive: false
+            })
+        );
+        this.hasMore = vids.totalElemsPages > (this.params.page * 40);
+    }
+
+    nextPage() {
+        this.params.page++;
+        this.loadPage();
+        return this;
+    }
+}
 
 source.getSearchChannelContentsCapabilities = function () {
 	return {
