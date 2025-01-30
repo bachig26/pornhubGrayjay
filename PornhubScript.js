@@ -1,18 +1,14 @@
 const URL_BASE = "https://www.pornhub.com";
+
 const PLATFORM_CLAIMTYPE = 3;
+
 const PLATFORM = "PornHub";
 
 var config = {};
+// session token
 var token = "";
-var headers = {
-    "Cookie": "",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Referer": URL_BASE,
-    "Accept-Language": "en-US,en;q=0.9",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "same-origin"
-};
+// headers (including cookie by default, since it's used for each session later)
+var headers = {"Cookie": ""};
 
 /**
  * Build a query
@@ -70,17 +66,10 @@ source.getSearchCapabilities = () => {
 
 // KEEP
 source.search = function (query, type, order, filters) {
-    const sortMap = {
-        [Type.Order.Chronological]: "cm" // Newest first
-    };
-    
-    const params = {
-        search: query,
-        o: sortMap[order] || "mr" // Default to most relevant
-    };
-
-    return getVideoPager("/video/search", params, 1);
-};
+	//let sort = order;
+	//if (sort === Type.Order.Chronological) {
+	//	sort = "-publishedAt";
+	//}
 //
 	//const params = {
 	//	search: query,
@@ -93,8 +82,8 @@ source.search = function (query, type, order, filters) {
 	//	params.isLive = false;
 	//}
 
-	//return getVideoPager("/video/search", {search: query}, 1);
-//};
+	return getVideoPager("/video/search", {search: query}, 1);
+};
 
 source.getSearchChannelContentsCapabilities = function () {
 	return {
@@ -285,16 +274,17 @@ source.getContentDetails = function (url) {
 // 2.) cookie labeled "ss" in headers
 // this will allow you to get search suggestions!!
 function refreshSession() {
-    const resp = http.GET(URL_BASE, headers); // Use headers with proper UA
-    if (!resp.isOk)
-        throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
-    else {
-        var dom = domParser.parseFromString(resp.body);
-        token = dom.querySelector("#searchInput").getAttribute("data-token");
-        const adContextInfo = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]").getAttribute("data-info");
-        headers["Cookie"] = `ss=${JSON.parse(adContextInfo)["session_id"]}`;
-        log("New session created with headers");
-    }
+	const resp = http.GET(URL_BASE, {});
+	if (!resp.isOk)
+		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
+	else {
+		var dom = domParser.parseFromString(resp.body);
+		token = dom.querySelector("#searchInput").getAttribute("data-token");
+		const adContextInfo = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]").getAttribute("data-info");
+		// Add 'age_verified=1' to the Cookie header
+		headers["Cookie"] = `ss=${JSON.parse(adContextInfo)["session_id"]}; age_verified=1`; // Modified line
+		log("New session created");
+	}
 }
 
 function getVideoId(dom) {
@@ -1030,7 +1020,3 @@ function parseDuration(durationStr) {
 
 	return 60 * mins + secs;
 }
-
-
-
-log("LOADED");
