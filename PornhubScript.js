@@ -6,10 +6,12 @@ var config = {};
 var token = "";
 var headers = {
     "Cookie": "",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-    "Referer": URL_BASE
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": URL_BASE,
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin"
 };
 
 /**
@@ -68,10 +70,17 @@ source.getSearchCapabilities = () => {
 
 // KEEP
 source.search = function (query, type, order, filters) {
-	//let sort = order;
-	//if (sort === Type.Order.Chronological) {
-	//	sort = "-publishedAt";
-	//}
+    const sortMap = {
+        [Type.Order.Chronological]: "cm" // Newest first
+    };
+    
+    const params = {
+        search: query,
+        o: sortMap[order] || "mr" // Default to most relevant
+    };
+
+    return getVideoPager("/video/search", params, 1);
+};
 //
 	//const params = {
 	//	search: query,
@@ -84,8 +93,8 @@ source.search = function (query, type, order, filters) {
 	//	params.isLive = false;
 	//}
 
-	return getVideoPager("/video/search", {search: query}, 1);
-};
+	//return getVideoPager("/video/search", {search: query}, 1);
+//};
 
 source.getSearchChannelContentsCapabilities = function () {
 	return {
