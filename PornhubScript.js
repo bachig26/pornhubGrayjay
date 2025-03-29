@@ -64,26 +64,55 @@ source.getSearchCapabilities = () => {
 	};
 };
 
-// KEEP
-source.search = function (query, type, order, filters) {
-	//let sort = order;
-	//if (sort === Type.Order.Chronological) {
-	//	sort = "-publishedAt";
-	//}
-//
-	//const params = {
-	//	search: query,
-	//	sort
-	//};
-//
-	//if (type == Type.Feed.Streams) {
-	//	params.isLive = true;
-	//} else if (type == Type.Feed.Videos) {
-	//	params.isLive = false;
-	//}
+const SEARCH_API = "/video/search";
 
-	return getVideoPager("/video/search", {search: query}, 1);
+source.search = function (query, type, order, filters) {
+    const params = {
+        search: query,
+        page: 1 // Start from first page
+    };
+    return new PornhubSearchPager(SEARCH_API, params);
 };
+
+class PornhubSearchPager extends VideoPager {
+    constructor(path, params) {
+        super([], false);
+        this.path = path;
+        this.params = params;
+        this.loadPage();
+    }
+
+    loadPage() {
+        const url = `${URL_BASE}${this.path}${buildQuery(this.params)}`;
+        const html = getPornhubContentData(url);
+        const vids = getVideos(html, "videoSearchResult");
+        
+        this.results = vids.videos.map(v => 
+            new PlatformVideo({
+                id: new PlatformID(PLATFORM, v.id, config.id),
+                name: v.title,
+                thumbnails: new Thumbnails([new Thumbnail(v.thumbnailUrl, 0)]),
+                author: new PlatformAuthorLink(
+                    new PlatformID(PLATFORM, v.authorInfo.authorName, config.id),
+                    v.authorInfo.authorName,
+                    v.authorInfo.channel,
+                    ""
+                ),
+                duration: v.duration,
+                viewCount: v.views,
+                url: v.videoUrl,
+                isLive: false
+            })
+        );
+        this.hasMore = vids.totalElemsPages > (this.params.page * 40);
+    }
+
+    nextPage() {
+        this.params.page++;
+        this.loadPage();
+        return this;
+    }
+}
 
 source.getSearchChannelContentsCapabilities = function () {
 	return {
@@ -274,18 +303,26 @@ source.getContentDetails = function (url) {
 // 2.) cookie labeled "ss" in headers
 // this will allow you to get search suggestions!!
 function refreshSession() {
-	const resp = http.GET(URL_BASE, {});
-	if (!resp.isOk)
-		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
-	else {
-		var dom = domParser.parseFromString(resp.body);
-		// the token is found here
-		token = dom.querySelector("#searchInput").getAttribute("data-token");
-		// and the data for the ss cookie is found here
-		const adContextInfo = dom.querySelector("meta[name=\"adsbytrafficjunkycontext\"]").getAttribute("data-info");
-		headers["Cookie"] = `ss=${JSON.parse(adContextInfo)["session_id"]}`
-		log("New session created")
-	}
+    const resp = http.GET(URL_BASE, {});
+    const dom = domParser.parseFromString(resp.body);
+    
+    // Get essential cookies and tokens
+    token = dom.querySelector("#searchInput")?.getAttribute("data-token") || "";
+    const adContextInfo = JSON.parse(
+        dom.querySelector('meta[name="adsbytrafficjunkycontext"]')?.getAttribute("data-info") || "{}"
+    );
+    
+    // Set critical cookies for age verification and tracking
+    headers.Cookie = [
+        `ss=${adContextInfo.session_id}`,
+        "age_verified=1",
+        "platform=pc",
+        "bs=krkq8q4o4000k4s8000g",
+        "ua=9f5214780a7c2f557a2d0c6f1286d9a2"
+    ].join("; ");
+    
+    // Add mobile user agent to bypass desktop restrictions
+    headers["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1";
 }
 
 function getVideoId(dom) {
@@ -897,107 +934,41 @@ function getVideoPager(path, params, page) {
 
 
 // KEEP
-function getVideos(html, ulId) {
-
-	let node = domParser.parseFromString(html, "text/html");
-	
-	// Find the ul element with id ulId
-	var ulElement = node.getElementById(ulId);
-
-	var pagingIndication = node.getElementsByClassName("showingCounter")[0].textContent.trim()
-	var indexOfTotalStr = pagingIndication.indexOf("of "); // "showing XX-ZZ of TOTAL"
-	const total = parseInt(pagingIndication.substring(indexOfTotalStr + 3), 10);
-
-	var resultArray = []
-
-	// Check if the ul element with id "singleFeedSection" exists
-	if (ulElement) {
-		// Get all li elements inside the ul
-		var liElements = ulElement.querySelectorAll("li");
-
-		// Iterate through each li element
-		liElements.forEach(function (li) {
-
-			// Get the id attribute of the li element
-			var liId = li.getAttribute("id");
-
-			// Check if the id starts with "v" and is followed by digits only
-
-			if (liId != "") {
-				// Find the first <a> tag inside the li
-				var aElement = li.querySelector('a');
-
-				var viewsStr = li.getElementsByClassName("videoDetailsBlock")[0].getElementsByClassName("views")[0].textContent.trim()
-				var views = parseNumberSuffix(viewsStr);
-
-				var authorInfoNode = li.getElementsByClassName("usernameWrap")[0].firstChild;
-
-				var authorInfo = {
-					channel: URL_BASE + authorInfoNode.getAttribute("href"),
-					authorName: authorInfoNode.textContent.trim()
-				}
-
-				// Check if an <a> tag is found
-				if (aElement) {
-
-					//var duration = li.querySelectorAll("var").
-					var durationStr = aElement.getElementsByClassName("duration")[0].textContent.trim()
-					var duration = parseDuration(durationStr);
-
-					// Get the "href" attribute as "videoUrl"
-					var videoUrl = URL_BASE + aElement.getAttribute('href');
-
-					// Find the <img> tag inside the <a>
-					var imgElement = aElement.querySelector('img');
-
-					// Check if an <img> tag is found
-					if (imgElement) {
-						// Get the "src" attribute as "thumbnailUrl"
-						var thumbnailUrl = imgElement.getAttribute('src');
-
-						// Title
-						var title = imgElement.getAttribute("alt");
-
-
-						var videoId = imgElement.getAttribute("data-video-id");
-
-						// Create an object with the desired properties and push it to the result array
-						resultArray.push({
-							id: videoId,
-							videoUrl: videoUrl,
-							title: title,
-							thumbnailUrl: thumbnailUrl,
-							duration: duration,
-							authorInfo: authorInfo,
-							views: views,
-						});
-					}
-				}
-			}
-		});
-	}
-
-	return {
-		totalElemsPages: total,
-		videos: resultArray
-	};
-
+function getVideos(html, containerId) {
+    const dom = domParser.parseFromString(html);
+    const total = parseInt(dom.querySelector(".showingCounter")?.textContent.match(/of (\d+)/)?.[1] || "0");
+    
+    return {
+        totalElemsPages: total,
+        videos: Array.from(dom.querySelectorAll(`#${containerId} li.pcVideoListItem`)).map(li => ({
+            id: li.getAttribute("data-video-id"),
+            title: li.querySelector(".title a")?.getAttribute("title"),
+            duration: parseDuration(li.querySelector(".duration")?.textContent),
+            views: parseViews(li.querySelector(".views")?.textContent),
+            thumbnailUrl: li.querySelector("img")?.getAttribute("src"),
+            videoUrl: URL_BASE + li.querySelector("a")?.getAttribute("href"),
+            authorInfo: {
+                authorName: li.querySelector(".usernameWrap a")?.textContent,
+                channel: li.querySelector(".usernameWrap a")?.getAttribute("href")
+            }
+        }))
+    };
 }
 
 
+
 function getPornhubContentData(url) {
-	if(headers["Cookie"].length === 0) {
-		refreshSession();
-	}
-	else {
-		log("Session is good");
-	}
-	const resp = http.GET(url, headers);
-	if (!resp.isOk)
-		throw new ScriptException("Failed request [" + URL_BASE + "] (" + resp.code + ")");
-	else {
-		return resp.body
-	}
+    if (!headers.Cookie.includes("age_verified=1")) refreshSession();
+    
+    return http.GET(url, {
+        headers: {
+            ...headers,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate"
+        },
+        autoRetry: true
+    }).body;
 }
 
 function parseNumberSuffix(numStr) {
@@ -1021,7 +992,3 @@ function parseDuration(durationStr) {
 
 	return 60 * mins + secs;
 }
-
-
-
-log("LOADED");
